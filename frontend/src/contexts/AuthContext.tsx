@@ -32,22 +32,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await axios.post('/auth/login', { email, password })
+      const response = await axios.post('/auth/login', { username: email, password })
       const { token } = response.data
       localStorage.setItem('token', token)
       setIsAuthenticated(true)
     } catch (error) {
+      console.error('Login error:', error)
       throw error
     }
   }
 
   const register = async (email: string, password: string) => {
     try {
-      const response = await axios.post('/auth/signup', { email, password })
+      const response = await axios.post('/auth/signup', { username: email, password })
       const { token } = response.data
       localStorage.setItem('token', token)
       setIsAuthenticated(true)
     } catch (error) {
+      console.error('Register error:', error)
       throw error
     }
   }
