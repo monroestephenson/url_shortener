@@ -4,6 +4,7 @@ import (
     "log"
     "net/http"
     "os"
+    "fmt"
 
     "github.com/gorilla/mux"
 
@@ -13,6 +14,12 @@ import (
 )
 
 func main() {
+    // Get port from environment variable or use default
+    port := os.Getenv("PORT")
+    if port == "" {
+        port = "8080"
+    }
+
     // Example DSN: "user:password@tcp(localhost:3306)/url_shortener?parseTime=true"
     dsn := os.Getenv("MYSQL_DSN")
     if dsn == "" {
@@ -45,8 +52,8 @@ func main() {
     r.HandleFunc("/{shortCode}", shortURLHandler.RedirectToOriginalURL).Methods("GET")
 
     // Start the server
-    log.Println("Starting server on :8080")
-    if err := http.ListenAndServe(":8080", r); err != nil {
+    log.Printf("Starting server on port %s", port)
+    if err := http.ListenAndServe(fmt.Sprintf(":%s", port), r); err != nil {
         log.Fatalf("Server failed: %v", err)
     }
 }
