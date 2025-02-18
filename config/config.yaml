@@ -1,0 +1,10 @@
+server:
+  port: "8080"
+  mode: "development"
+
+database:
+  dsn: "root:password@tcp(mysql:3306)/url_shortener?parseTime=true"
+
+jwt:
+  secret: "your-secret-key-change-in-production"
+  expiry_hours: 24 

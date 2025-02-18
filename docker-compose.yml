@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - URL_SHORTENER_DATABASE_DSN=root:password@tcp(mysql:3306)/url_shortener?parseTime=true
+      - URL_SHORTENER_SERVER_MODE=development
+      - URL_SHORTENER_JWT_SECRET=your-secret-key-change-in-production
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - url_shortener_net
+
+  mysql:
+    image: mysql:8
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=url_shortener
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - url_shortener_net
+
+volumes:
+  mysql_data:
+
+networks:
+  url_shortener_net:
+    driver: bridge 
