@@ -17,6 +17,10 @@ TEST_URL=https://www.google.com
 TEST_UPDATED_URL=https://www.github.com
 TEST_EMAIL=test@example.com
 TEST_PASSWORD=testpass123
+GREEN=\033[0;32m
+RED=\033[0;31m
+NC=\033[0m
+BOLD=\033[1m
 
 # Check for Go installation
 GOVERSION := $(shell go version 2>/dev/null)
@@ -124,32 +128,96 @@ up: check-go check-mysql tidy migrate-up ## Set up and run the entire applicatio
 	PORT=$(API_PORT) MYSQL_DSN="$(MYSQL_DSN)" go run $(MAIN_PATH)
 
 test-api: ## Test the API endpoints
-	@echo "\n1. Creating a test user..."
-	@curl -X POST -H "Content-Type: application/json" \
+	@echo "$(BOLD)🚀 Testing URL Shortener API...$(NC)\n"
+	@START_TIME=`date +%s` && ( \
+	echo "$(BOLD)1. Creating test user...$(NC)" && \
+	RESPONSE=$$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" \
 		-d '{"email":"$(TEST_EMAIL)","password":"$(TEST_PASSWORD)"}' \
-		http://localhost:$(API_PORT)/auth/signup
-
-	@echo "\n\n2. Logging in to get JWT token..."
-	@TOKEN=$$(curl -s -X POST -H "Content-Type: application/json" \
+		http://localhost:$(API_PORT)/auth/signup) && \
+	STATUS=$$(echo "$$RESPONSE" | tail -n1) && \
+	BODY=$$(echo "$$RESPONSE" | sed '$$d') && \
+	if [ "$$STATUS" = "201" ] || [ "$$STATUS" = "409" ]; then \
+		echo "$$BODY" | (jq '.' 2>/dev/null || echo "$$BODY") && \
+		echo "$(GREEN)✓ User created or already exists$(NC)"; \
+	else \
+		echo "Server not responding. Is it running? (make up)"; \
+		exit 1; \
+	fi && \
+	\
+	echo "\n$(BOLD)2. Logging in to get JWT token...$(NC)" && \
+	TOKEN=$$(curl -s -X POST -H "Content-Type: application/json" \
 		-d '{"email":"$(TEST_EMAIL)","password":"$(TEST_PASSWORD)"}' \
 		http://localhost:$(API_PORT)/auth/login | grep -o '"token":"[^"]*' | cut -d'"' -f4) && \
-	echo "\nToken: $$TOKEN" && \
-	echo "\n3. Creating a short URL for $(TEST_URL)..." && \
-	curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $$TOKEN" \
+	if [ -z "$$TOKEN" ]; then \
+		echo "$(RED)✗ Failed to get token. Make sure the server is running with:$(NC)"; \
+		echo "   make up"; \
+		exit 1; \
+	fi && \
+	echo "$(GREEN)✓ Token received$(NC)" && \
+	\
+	echo "\n$(BOLD)3. Creating short URL for $(TEST_URL)...$(NC)" && \
+	RESPONSE=$$(curl -s -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $$TOKEN" \
 		-d '{"url":"$(TEST_URL)"}' \
-		http://localhost:$(API_PORT)/api/shorten && \
-	echo "\n\n4. Wait a few seconds before testing the created URL..." && \
-	sleep 2 && \
-	echo "\n5. Getting the last created short URL info (replace SHORTCODE with the code you received)..." && \
-	echo "curl -H 'Authorization: Bearer $$TOKEN' http://localhost:$(API_PORT)/api/shorten/SHORTCODE" && \
-	echo "\n6. Updating the URL (replace SHORTCODE with your code)..." && \
-	echo "curl -X PUT -H 'Content-Type: application/json' -H 'Authorization: Bearer $$TOKEN' \\" && \
-	echo "     -d '{\"url\":\"$(TEST_UPDATED_URL)\"}' \\" && \
-	echo "     http://localhost:$(API_PORT)/api/shorten/SHORTCODE" && \
-	echo "\n7. Getting statistics (replace SHORTCODE with your code)..." && \
-	echo "curl -H 'Authorization: Bearer $$TOKEN' http://localhost:$(API_PORT)/api/shorten/SHORTCODE/stats" && \
-	echo "\n8. Testing redirect (no auth required)..." && \
-	echo "curl -i http://localhost:$(API_PORT)/SHORTCODE" && \
-	echo "\n9. Deleting the URL (replace SHORTCODE with your code)..." && \
-	echo "curl -X DELETE -H 'Authorization: Bearer $$TOKEN' http://localhost:$(API_PORT)/api/shorten/SHORTCODE" && \
-	echo "\n\nReplace SHORTCODE in the above commands with the code you received from step 3." 
+		http://localhost:$(API_PORT)/api/shorten) && \
+	echo "$$RESPONSE" | (jq '.' 2>/dev/null || echo "$$RESPONSE") && \
+	SHORTCODE=$$(echo "$$RESPONSE" | grep -o '"shortCode":"[^"]*' | cut -d'"' -f4) && \
+	if [ -z "$$SHORTCODE" ]; then \
+		echo "$(RED)✗ Failed to create short URL$(NC)"; \
+		exit 1; \
+	fi && \
+	echo "$(GREEN)✓ Short URL created: $(BOLD)$$SHORTCODE$(NC)" && \
+	\
+	echo "\n$(BOLD)4. Getting URL info for $$SHORTCODE...$(NC)" && \
+	RESPONSE=$$(curl -s -H "Authorization: Bearer $$TOKEN" \
+		http://localhost:$(API_PORT)/api/shorten/$$SHORTCODE) && \
+	echo "$$RESPONSE" | (jq '.' 2>/dev/null || echo "Failed to get URL info") && \
+	echo "$(GREEN)✓ URL info retrieved$(NC)" && \
+	\
+	echo "\n$(BOLD)5. Updating URL to $(TEST_UPDATED_URL)...$(NC)" && \
+	RESPONSE=$$(curl -s -X PUT -H "Content-Type: application/json" -H "Authorization: Bearer $$TOKEN" \
+		-d '{"url":"$(TEST_UPDATED_URL)"}' \
+		http://localhost:$(API_PORT)/api/shorten/$$SHORTCODE) && \
+	echo "$$RESPONSE" | (jq '.' 2>/dev/null || echo "Failed to update URL") && \
+	echo "$(GREEN)✓ URL updated$(NC)" && \
+	\
+	echo "\n$(BOLD)6. Getting statistics...$(NC)" && \
+	RESPONSE=$$(curl -s -H "Authorization: Bearer $$TOKEN" \
+		http://localhost:$(API_PORT)/api/shorten/$$SHORTCODE/stats) && \
+	echo "$$RESPONSE" | (jq '.' 2>/dev/null || echo "Failed to get statistics") && \
+	echo "$(GREEN)✓ Statistics retrieved$(NC)" && \
+	\
+	echo "\n$(BOLD)7. Testing redirect...$(NC)" && \
+	echo "Testing: http://localhost:$(API_PORT)/$$SHORTCODE" && \
+	REDIRECT_TEST=$$(curl -s -o /dev/null -w "%{http_code}\n%{redirect_url}" http://localhost:$(API_PORT)/$$SHORTCODE) && \
+	STATUS_CODE=$$(echo "$$REDIRECT_TEST" | head -n1) && \
+	LOCATION=$$(echo "$$REDIRECT_TEST" | tail -n1 | sed 's:/*$$::') && \
+	EXPECTED_URL=$$(echo "$(TEST_UPDATED_URL)" | sed 's:/*$$::') && \
+	if [ "$$STATUS_CODE" = "301" ] && [ "$$LOCATION" = "$$EXPECTED_URL" ]; then \
+		echo "$(GREEN)✓ Redirect working correctly$(NC)"; \
+		echo "  Status: $$STATUS_CODE (Moved Permanently)"; \
+		echo "  Location: $$LOCATION"; \
+	else \
+		echo "$(RED)✗ Redirect check failed$(NC)"; \
+		echo "  Expected status: 301, got: $$STATUS_CODE"; \
+		echo "  Expected location: $$EXPECTED_URL"; \
+		echo "  Got location: $$LOCATION"; \
+	fi && \
+	\
+	echo "\n$(BOLD)8. Deleting URL...$(NC)" && \
+	RESULT=$$(curl -s -w "%{http_code}" -X DELETE -H "Authorization: Bearer $$TOKEN" \
+		http://localhost:$(API_PORT)/api/shorten/$$SHORTCODE) && \
+	if [ "$$RESULT" = "204" ]; then \
+		echo "$(GREEN)✓ URL deleted$(NC)"; \
+	else \
+		echo "$(RED)✗ Failed to delete URL$(NC)"; \
+	fi && \
+	END_TIME=`date +%s` && \
+	DURATION=$$((END_TIME - START_TIME)) && \
+	echo "\n$(GREEN)✨ All tests completed in $$DURATION seconds!$(NC)" && \
+	echo "\n$(BOLD)Summary:$(NC)" && \
+	echo "• Short URL created: $(BOLD)$$SHORTCODE$(NC)" && \
+	echo "• Original URL: $(TEST_URL)" && \
+	echo "• Updated URL: $(TEST_UPDATED_URL)" && \
+	echo "• API endpoint: http://localhost:$(API_PORT)" && \
+	echo "• All operations completed successfully ✨" \
+	) 
