@@ -34,47 +34,46 @@ To stop everything:
 make stop
 ```
 
-## API Usage
+## API Documentation
 
-### 1. Create a user
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"testpass123"}' \
-  http://localhost:3000/auth/signup
-```
+The API documentation is available in two formats:
 
-### 2. Login to get JWT token
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"testpass123"}' \
-  http://localhost:3000/auth/login
-```
+1. **Swagger UI**: Visit `http://localhost:3000/docs` in your browser for an interactive API documentation
+2. **OpenAPI Specification**: Available at `http://localhost:3000/swagger.yaml`
 
-### 3. Create a short URL
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{"url":"https://www.example.com/very/long/url"}' \
-  http://localhost:3000/api/shorten
-```
+### Key Endpoints
 
-### 4. Use the short URL
-```bash
-curl -L http://localhost:3000/YOUR_SHORT_CODE
-```
+1. **Authentication**
+   - POST `/auth/signup` - Create a new user
+   - POST `/auth/login` - Get JWT token
+
+2. **URL Management**
+   - POST `/api/shorten` - Create short URL
+   - GET `/api/shorten/{shortCode}` - Get URL details
+   - PUT `/api/shorten/{shortCode}` - Update URL
+   - DELETE `/api/shorten/{shortCode}` - Delete URL
+   - GET `/api/shorten/{shortCode}/stats` - Get URL statistics
+
+3. **Redirect**
+   - GET `/{shortCode}` - Redirect to original URL
+
+4. **Monitoring**
+   - GET `/metrics` - Prometheus metrics
 
 ## Features
 
-- ✨ URL shortening with custom codes
+- ✨ URL shortening with cryptographically secure short codes
 - 🔒 JWT Authentication
 - 🚀 Redis caching for fast access
 - 📊 Prometheus metrics
 - 🛡️ Rate limiting
 - 📝 Access statistics
+- 📚 OpenAPI/Swagger documentation
 
 ## Development
 
 - Run tests: `make test`
+- Run API tests: `make test-api`
 - Run linters: `make lint`
 - Build binary: `make build`
 - Clean up: `make clean`
@@ -90,6 +89,7 @@ Access Prometheus metrics at: `http://localhost:3000/metrics`
 - `make docker-up` - Start only the Docker containers
 - `make docker-down` - Stop the Docker containers
 - `make test` - Run tests
+- `make test-api` - Run API integration tests
 - `make lint` - Run linters
 - `make build` - Build the binary
 - `make clean` - Clean up
@@ -102,3 +102,12 @@ The following environment variables can be configured:
 - `MYSQL_DSN` - MySQL connection string
 - `REDIS_URL` - Redis connection string
 - `JWT_SECRET` - Secret for JWT tokens
+
+## Security Features
+
+- Secure short code generation using crypto/rand
+- JWT-based authentication
+- Rate limiting per IP
+- URL validation and sanitization
+- Protection against malicious URLs
+- HTTPS scheme enforcement

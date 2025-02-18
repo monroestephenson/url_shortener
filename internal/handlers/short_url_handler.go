@@ -2,15 +2,14 @@ package handlers
 
 import (
 	"encoding/json"
-	"math/rand"
 	"net/http"
 	"strings"
-	"time"
 
 	"log"
 	"url_shortener/internal/cache"
 	"url_shortener/internal/models"
 	"url_shortener/internal/repository"
+	"url_shortener/internal/utils"
 
 	"github.com/gorilla/mux"
 )
@@ -56,8 +55,12 @@ func (h *ShortURLHandler) CreateShortURL(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Generate a random short code
-	shortCode := generateShortCode(6) // 6 characters
+	// Generate a secure random short code
+	shortCode, err := utils.GenerateSecureShortCode(6)
+	if err != nil {
+		http.Error(w, "Failed to generate short code", http.StatusInternalServerError)
+		return
+	}
 
 	su := models.ShortURL{
 		ShortCode:   shortCode,
@@ -203,15 +206,4 @@ func (h *ShortURLHandler) RedirectToOriginalURL(w http.ResponseWriter, r *http.R
 	}()
 
 	http.Redirect(w, r, su.OriginalURL, http.StatusMovedPermanently)
-}
-
-// generateShortCode creates a random alphanumeric string of length n.
-func generateShortCode(n int) string {
-	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	rand.Seed(time.Now().UnixNano())
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
 }

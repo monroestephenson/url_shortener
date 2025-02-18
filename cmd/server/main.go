@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	swaggerMiddleware "github.com/go-openapi/runtime/middleware"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
@@ -81,6 +82,15 @@ func main() {
 
 	// Setup router
 	r := mux.NewRouter()
+
+	// API Documentation
+	opts := swaggerMiddleware.SwaggerUIOpts{
+		BasePath: "/",
+		SpecURL:  "/swagger.yaml",
+	}
+	sh := swaggerMiddleware.SwaggerUI(opts, nil)
+	r.Handle("/docs", sh)
+	r.Handle("/swagger.yaml", http.FileServer(http.Dir("api")))
 
 	// Metrics endpoint
 	r.Handle("/metrics", promhttp.Handler())
