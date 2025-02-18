@@ -26,6 +26,11 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
+	// Override port from environment if provided
+	if port := os.Getenv("PORT"); port != "" {
+		cfg.Server.Port = port
+	}
+
 	// Initialize logger
 	if err := logger.Initialize(cfg.Server.Mode == "development"); err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
@@ -33,6 +38,12 @@ func main() {
 	defer logger.Sync()
 
 	log := logger.GetLogger()
+
+	// Get MySQL DSN from environment or config
+	dsn := os.Getenv("MYSQL_DSN")
+	if dsn != "" {
+		cfg.Database.DSN = dsn
+	}
 
 	// Connect to MySQL
 	database, err := db.NewMySQLDB(cfg.Database.DSN)
@@ -42,7 +53,7 @@ func main() {
 	}
 	defer database.Close()
 
-	// Initialize repository
+	// Initialize repositories
 	repo := repository.NewShortURLRepository(database)
 	userRepo := repository.NewUserRepository(database)
 
@@ -68,7 +79,7 @@ func main() {
 	api.HandleFunc("/shorten/{shortCode}", shortURLHandler.UpdateShortURL).Methods("PUT")
 	api.HandleFunc("/shorten/{shortCode}", shortURLHandler.DeleteShortURL).Methods("DELETE")
 	api.HandleFunc("/shorten/{shortCode}/stats", shortURLHandler.GetShortURLStats).Methods("GET")
-	
+
 	// Redirect route (no auth required)
 	redirectRouter := mux.NewRouter()
 	redirectRouter.HandleFunc("/{shortCode}", shortURLHandler.RedirectToOriginalURL).Methods("GET")
