@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.21.6-alpine3.19 AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/url-shortener ./cmd/server
 
 # Final stage
-FROM alpine:latest
+FROM alpine:3.19
 
 WORKDIR /app
 
@@ -32,7 +32,7 @@ RUN adduser -D appuser
 USER appuser
 
 # Expose port
-EXPOSE 8080
+EXPOSE 3000
 
 # Run the application
 CMD ["./url-shortener"] 
