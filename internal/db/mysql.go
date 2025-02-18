@@ -54,18 +54,34 @@ func NewMySQLDB(dsn string) (*sql.DB, error) {
 
 // createSchema creates the necessary database tables if they don't exist.
 func createSchema(db *sql.DB) error {
-	query := `
-	CREATE TABLE IF NOT EXISTS short_urls (
-		id INT AUTO_INCREMENT PRIMARY KEY,
-		short_code VARCHAR(10) NOT NULL UNIQUE,
-		original_url TEXT NOT NULL,
-		access_count INT NOT NULL DEFAULT 0,
-		created_at TIMESTAMP NOT NULL,
-		updated_at TIMESTAMP NOT NULL,
-		INDEX idx_short_code (short_code)
-	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-	`
+	queries := []string{
+		`CREATE TABLE IF NOT EXISTS users (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			username VARCHAR(50) NOT NULL UNIQUE,
+			password_hash VARCHAR(255) NOT NULL,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			INDEX idx_username (username)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
-	_, err := db.Exec(query)
-	return err
+		`CREATE TABLE IF NOT EXISTS short_urls (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			short_code VARCHAR(10) NOT NULL UNIQUE,
+			original_url TEXT NOT NULL,
+			access_count INT NOT NULL DEFAULT 0,
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL,
+			user_id INT,
+			INDEX idx_short_code (short_code),
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+	}
+
+	for _, query := range queries {
+		if _, err := db.Exec(query); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

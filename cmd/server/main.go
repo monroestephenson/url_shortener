@@ -44,23 +44,30 @@ func main() {
 
 	// Initialize repository
 	repo := repository.NewShortURLRepository(database)
+	userRepo := repository.NewUserRepository(database)
 
 	// Initialize handlers
 	shortURLHandler := handlers.NewShortURLHandler(repo)
+	authHandler := handlers.NewAuthHandler(userRepo, cfg.JWT.Secret)
 
 	// Setup router
 	r := mux.NewRouter()
 
-	// Add middleware
-	r.Use(middleware.LoggingMiddleware)
-	r.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
+	// Auth routes (no auth required)
+	r.HandleFunc("/auth/signup", authHandler.Signup).Methods("POST")
+	r.HandleFunc("/auth/login", authHandler.Login).Methods("POST")
 
-	// Routes
-	r.HandleFunc("/shorten", shortURLHandler.CreateShortURL).Methods("POST")
-	r.HandleFunc("/shorten/{shortCode}", shortURLHandler.GetShortURL).Methods("GET")
-	r.HandleFunc("/shorten/{shortCode}", shortURLHandler.UpdateShortURL).Methods("PUT")
-	r.HandleFunc("/shorten/{shortCode}", shortURLHandler.DeleteShortURL).Methods("DELETE")
-	r.HandleFunc("/shorten/{shortCode}/stats", shortURLHandler.GetShortURLStats).Methods("GET")
+	// Add middleware
+	api := r.PathPrefix("/api").Subrouter()
+	api.Use(middleware.LoggingMiddleware)
+	api.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
+
+	// Protected routes
+	api.HandleFunc("/shorten", shortURLHandler.CreateShortURL).Methods("POST")
+	api.HandleFunc("/shorten/{shortCode}", shortURLHandler.GetShortURL).Methods("GET")
+	api.HandleFunc("/shorten/{shortCode}", shortURLHandler.UpdateShortURL).Methods("PUT")
+	api.HandleFunc("/shorten/{shortCode}", shortURLHandler.DeleteShortURL).Methods("DELETE")
+	api.HandleFunc("/shorten/{shortCode}/stats", shortURLHandler.GetShortURLStats).Methods("GET")
 	
 	// Redirect route (no auth required)
 	redirectRouter := mux.NewRouter()
