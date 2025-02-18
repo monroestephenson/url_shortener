@@ -7,10 +7,13 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
+	"url_shortener/internal/cache"
 	"url_shortener/internal/config"
 	"url_shortener/internal/db"
 	"url_shortener/internal/handlers"
@@ -39,6 +42,18 @@ func main() {
 
 	log := logger.GetLogger()
 
+	// Initialize Redis cache
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		redisURL = "localhost:6380" // Default to the Docker port
+	}
+	redisCache, err := cache.NewRedisCache(redisURL, "", 0)
+	if err != nil {
+		log.Error("Could not connect to Redis", zap.Error(err))
+		os.Exit(1)
+	}
+	defer redisCache.Close()
+
 	// Get MySQL DSN from environment or config
 	dsn := os.Getenv("MYSQL_DSN")
 	if dsn != "" {
@@ -57,12 +72,18 @@ func main() {
 	repo := repository.NewShortURLRepository(database)
 	userRepo := repository.NewUserRepository(database)
 
+	// Initialize rate limiter
+	rateLimiter := middleware.NewRateLimiterStore(100, 200) // 100 requests per second, burst of 200
+
 	// Initialize handlers
-	shortURLHandler := handlers.NewShortURLHandler(repo)
+	shortURLHandler := handlers.NewShortURLHandler(repo, redisCache)
 	authHandler := handlers.NewAuthHandler(userRepo, cfg.JWT.Secret)
 
 	// Setup router
 	r := mux.NewRouter()
+
+	// Metrics endpoint
+	r.Handle("/metrics", promhttp.Handler())
 
 	// Auth routes (no auth required)
 	r.HandleFunc("/auth/signup", authHandler.Signup).Methods("POST")
@@ -71,6 +92,8 @@ func main() {
 	// Add middleware
 	api := r.PathPrefix("/api").Subrouter()
 	api.Use(middleware.LoggingMiddleware)
+	api.Use(middleware.MetricsMiddleware)
+	api.Use(middleware.RateLimitMiddleware(rateLimiter))
 	api.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 
 	// Protected routes
@@ -85,10 +108,13 @@ func main() {
 	redirectRouter.HandleFunc("/{shortCode}", shortURLHandler.RedirectToOriginalURL).Methods("GET")
 	r.PathPrefix("/").Handler(redirectRouter)
 
-	// Create server
+	// Create server with timeouts
 	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%s", cfg.Server.Port),
-		Handler: r,
+		Addr:         fmt.Sprintf(":%s", cfg.Server.Port),
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	// Start server in a goroutine
