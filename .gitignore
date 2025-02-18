@@ -1,4 +1,6 @@
-# Binaries and compiled files
+# Backend
+bin/
+tmp/
 *.exe
 *.exe~
 *.dll
@@ -7,12 +9,25 @@
 *.test
 *.out
 urlshortener
+*.prof
+.env
 
-# Go specific
-vendor/
-*.env
+# Frontend
+node_modules/
+dist/
+build/
+.DS_Store
+*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
-# IDE specific
+# IDE
 .idea/
 .vscode/
 *.swp
@@ -21,11 +36,11 @@ vendor/
 *~
 
 # Project specific
-tmp/
 logs/
 .air.toml
 
 # Dependencies
+vendor/
 go.sum
 
 # Test files
@@ -33,9 +48,8 @@ coverage.txt
 coverage.html
 
 # Environment variables
-.env
-.env.local
-.env.*.local
+.env*
+!.env.example
 
 # Docker
 .docker/
@@ -66,4 +80,13 @@ Icon
 # Debug files
 debug/
 debug.test
-__debug_bin 
+__debug_bin
+
+# Build
+dist/
+build/
+
+# Cache directories
+.cache/
+.npm/
+.eslintcache 

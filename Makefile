@@ -78,10 +78,15 @@ docker-down: ## Stop all docker containers
 
 start: docker-up ## Start the application and all its dependencies
 	@echo "$(BOLD)Starting URL shortener application...$(NC)"
-	PORT=$(API_PORT) \
-	MYSQL_DSN="$(MYSQL_DSN)" \
-	REDIS_URL="$(REDIS_URL)" \
-	go run $(MAIN_PATH)
+	@echo "$(BOLD)Starting backend API...$(NC)"
+	@cd frontend && npm install > /dev/null 2>&1
+	@echo "$(BOLD)Starting services...$(NC)"
+	@(cd frontend && npm run dev) & \
+	(PORT=$(API_PORT) MYSQL_DSN="$(MYSQL_DSN)" REDIS_URL="$(REDIS_URL)" go run $(MAIN_PATH)) & \
+	wait
+	@echo "$(GREEN)✓ Application is running:$(NC)"
+	@echo "Frontend: http://localhost:5173"
+	@echo "Backend API: http://localhost:$(API_PORT)"
 
 stop: docker-down ## Stop the application and all its dependencies
 	@echo "$(GREEN)✓ Application stopped$(NC)"
