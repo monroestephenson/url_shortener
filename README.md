@@ -13,7 +13,7 @@ A production-ready URL shortener service with Redis caching, MySQL storage, and 
 
 1. Clone the repository:
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/monroestephenson/url_shortener
    cd url-shortener
    ```
 
